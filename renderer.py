@@ -2,7 +2,7 @@ import pygame
 import os
 import math
 import random
-from config import WHITE, P1_COLOR, P1_DARK, P2_COLOR, P2_DARK
+from config import WHITE, P1_COLOR, P1_DARK, P2_COLOR, P2_DARK, POWERUP_TYPES
 
 ASSETS = os.path.join(os.path.dirname(__file__), 'assets')
 
@@ -66,9 +66,11 @@ def render(screen, state, get_font):
         shake_dy = int((1 if random.random() > 0.5 else -1) * power)
 
     if bg_image:
-        if GAME_H not in _bg_scaled:
-            _bg_scaled[GAME_H] = pygame.transform.scale(bg_image, (BG_W, GAME_H))
-        bg = _bg_scaled[GAME_H]
+        full_h = screen.get_height()
+        if 'full_h' not in _bg_scaled or _bg_scaled.get('_h') != full_h:
+            _bg_scaled['full_h'] = pygame.transform.scale(bg_image, (BG_W, full_h))
+            _bg_scaled['_h'] = full_h
+        bg = _bg_scaled['full_h']
         scroll = int(pygame.time.get_ticks() * 0.05) % BG_W
         x = -scroll
         while x < GAME_W:
@@ -113,12 +115,15 @@ def render(screen, state, get_font):
         if not e['dead']:
             draw_enemy(screen, e, shake_dx, shake_dy)
 
+    for pu in state.get('powerups', []):
+        draw_powerup(screen, pu, shake_dx, shake_dy)
+
     for p in pl:
         if p['dead']:
             continue
         if p['invTimer'] > 0 and int(p['invTimer'] * 10) % 2 == 0:
             continue
-        draw_player(screen, p, shake_dx, shake_dy)
+        draw_player(screen, p, shake_dx, shake_dy, get_font)
 
     for p in pt:
         alpha = max(0, min(1, p['life'] * 2.8))
@@ -136,8 +141,32 @@ def render(screen, state, get_font):
         tr = txt.get_rect(center=(int(s['x']) + shake_dx, int(s['y']) + shake_dy))
         screen.blit(txt, tr)
 
-def draw_player(screen, p, shake_dx=0, shake_dy=0):
-    if player_sheet:
+def draw_player(screen, p, shake_dx=0, shake_dy=0, get_font=None):
+    if p.get('easterTimer', 0) > 0:
+        bob = math.sin(pygame.time.get_ticks() * 0.008) * 3
+        bx = int(p['x'] - PLAYER_FW / 2) + shake_dx
+        by = int(p['y'] - PLAYER_FH / 2) + shake_dy + int(bob)
+        if player_sheet:
+            frame = int(pygame.time.get_ticks() / 180) % 2
+            spr = player_sheet.subsurface(frame * PLAYER_FW, 0, PLAYER_FW, PLAYER_FH)
+            screen.blit(spr, (bx, by))
+        else:
+            draw_pixel_ship_fallback(screen, p, shake_dx, shake_dy)
+        if get_font:
+            bubble = 'PONGANOS 10 PROFE!'
+            f = get_font(9)
+            tw, th = f.size(bubble)
+            pad_b = 6
+            bw, bh = tw + pad_b * 2 + 2, th + pad_b * 2
+            bub_x = int(p['x']) + shake_dx - bw // 2
+            bub_y = by - bh - 6
+            pygame.draw.rect(screen, (255, 255, 255), (bub_x, bub_y, bw, bh))
+            pygame.draw.rect(screen, (0, 0, 0), (bub_x, bub_y, bw, bh), 2)
+            tx = bub_x + pad_b + 1
+            ty = bub_y + pad_b
+            txt = f.render(bubble, True, (0, 0, 0))
+            screen.blit(txt, (tx, ty))
+    elif player_sheet:
         frame = int(pygame.time.get_ticks() / 180) % 2
         spr = player_sheet.subsurface(frame * PLAYER_FW, 0, PLAYER_FW, PLAYER_FH)
         screen.blit(spr, (int(p['x'] - PLAYER_FW / 2) + shake_dx, int(p['y'] - PLAYER_FH / 2) + shake_dy))
@@ -206,3 +235,13 @@ def draw_pixel_enemy_fallback(screen, e, shake_dx=0, shake_dy=0):
         pygame.draw.rect(screen, (34, 34, 34), (x - bw // 2, y + hh + 3, bw, 4))
         hp_color = (0, 255, 102) if ratio > 0.6 else (255, 204, 0) if ratio > 0.3 else (255, 51, 0)
         pygame.draw.rect(screen, hp_color, (x - bw // 2, y + hh + 3, max(1, int(bw * ratio)), 4))
+
+def draw_powerup(screen, pu, shake_dx=0, shake_dy=0):
+    x = int(pu['x']) + shake_dx
+    y = int(pu['y']) + shake_dy + int(math.sin(pygame.time.get_ticks() * 0.006) * 3)
+    info = POWERUP_TYPES.get(pu['type'], {})
+    col = info.get('color', (255, 255, 255))
+    pygame.draw.rect(screen, (255, 255, 255), (x - 9, y - 9, 18, 18))
+    pygame.draw.rect(screen, col, (x - 7, y - 7, 14, 14))
+    glow = int(abs(math.sin(pygame.time.get_ticks() * 0.005)) * 100 + 155)
+    pygame.draw.rect(screen, (glow, glow, glow), (x - 4, y - 4, 8, 8))

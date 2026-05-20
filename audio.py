@@ -67,6 +67,12 @@ def play_hit():
         s.set_volume(sfx_volume)
         s.play()
 
+def play_explosion():
+    s = _load_sfx('hit.wav')
+    if s:
+        s.set_volume(sfx_volume * 0.6)
+        s.play()
+
 # ── Music ──
 def stop_music():
     try:

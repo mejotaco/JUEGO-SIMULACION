@@ -1,7 +1,7 @@
 import pygame
 import random
 import math
-from config import GAME_W, MENU_BG
+from config import GAME_W, MENU_BG, POWERUP_TYPES
 import audio
 import renderer
 from update import update as game_update, set_pygame_time
@@ -29,7 +29,7 @@ def set_screen(screen):
     _screen = screen
 
 
-def start_game(mode, p1_name, p2_name, ctrl_scheme='wasd'):
+def start_game(mode, p1_name, p2_name, ctrl_p1='wasd', ctrl_p2='arrows', easter=False):
     global _state, _last_time, _paused, _esc_once, _anim_loop
     audio.stop_music()
     _paused = False
@@ -51,7 +51,9 @@ def start_game(mode, p1_name, p2_name, ctrl_scheme='wasd'):
         'killCount': 0,
         'wave': 1,
         'bossMusicPlayed': False,
-        'ctrlScheme': ctrl_scheme,
+        'ctrlSchemeP1': ctrl_p1,
+        'ctrlSchemeP2': ctrl_p2,
+        'easterEgg': easter,
         'shake': 0,
         'enemies': [],
         'bullets': [],
@@ -61,6 +63,7 @@ def start_game(mode, p1_name, p2_name, ctrl_scheme='wasd'):
         'gameOver': False,
         'spawnTimer': 2.0 * 0.2,
         'lastTime': 0,
+        'powerups': [],
         'waveMsg': '',
         'waveMsgTimer': 0,
         'loserShown': False,
@@ -86,7 +89,8 @@ def start_game(mode, p1_name, p2_name, ctrl_scheme='wasd'):
                 'color': (0, 255, 255), 'dark': (0, 51, 68),
                 'invTimer': 0, 'shootCd': 0,
                 'speed': 220, 'name': p1_name, 'lastDir': 1,
-                'heat': 0, 'reloadTimer': 0
+                'heat': 0, 'reloadTimer': 0,
+                'powerup': None, 'powerupTimer': 0, 'heatMax': 15, 'shield': False
             }
         ]
     }
@@ -101,7 +105,8 @@ def start_game(mode, p1_name, p2_name, ctrl_scheme='wasd'):
             'color': (255, 0, 255), 'dark': (68, 0, 51),
             'invTimer': 0, 'shootCd': 0,
             'speed': 220, 'name': p2_name, 'lastDir': 1,
-            'heat': 0, 'reloadTimer': 0
+            'heat': 0, 'reloadTimer': 0,
+            'powerup': None, 'powerupTimer': 0, 'heatMax': 15, 'shield': False
         })
 
     _state['onPlayerDead'] = on_player_dead
@@ -135,8 +140,8 @@ def game_loop():
 
     game_keys = {}
     p = _state['players'][0]
-    useWASD = _state['currentMode'] == 1 and _state.get('ctrlScheme', 'wasd') == 'wasd'
-    if useWASD:
+    ctrl_p1 = _state.get('ctrlSchemeP1', 'wasd')
+    if ctrl_p1 == 'wasd':
         game_keys['w'] = _keys.get(pygame.K_w, False)
         game_keys['s'] = _keys.get(pygame.K_s, False)
         game_keys['a'] = _keys.get(pygame.K_a, False)
@@ -160,12 +165,19 @@ def game_loop():
         game_keys['capslock'] = False
 
     if _state['currentMode'] == 2:
-        p2 = _state['players'][1]
-        game_keys['w'] = game_keys['w'] or _keys.get(pygame.K_w, False)
-        game_keys['s'] = game_keys['s'] or _keys.get(pygame.K_s, False)
-        game_keys['a'] = game_keys['a'] or _keys.get(pygame.K_a, False)
-        game_keys['d'] = game_keys['d'] or _keys.get(pygame.K_d, False)
-        game_keys['ctrl'] = _keys.get(pygame.K_LCTRL, False) or _keys.get(pygame.K_RCTRL, False)
+        ctrl_p2 = _state.get('ctrlSchemeP2', 'arrows')
+        if ctrl_p2 == 'wasd':
+            game_keys['w'] = game_keys['w'] or _keys.get(pygame.K_w, False)
+            game_keys['s'] = game_keys['s'] or _keys.get(pygame.K_s, False)
+            game_keys['a'] = game_keys['a'] or _keys.get(pygame.K_a, False)
+            game_keys['d'] = game_keys['d'] or _keys.get(pygame.K_d, False)
+            game_keys['ctrl'] = game_keys.get('ctrl', False) or _keys.get(pygame.K_LCTRL, False) or _keys.get(pygame.K_RCTRL, False)
+        else:
+            game_keys['up'] = game_keys['up'] or _keys.get(pygame.K_UP, False)
+            game_keys['down'] = game_keys['down'] or _keys.get(pygame.K_DOWN, False)
+            game_keys['left'] = game_keys['left'] or _keys.get(pygame.K_LEFT, False)
+            game_keys['right'] = game_keys['right'] or _keys.get(pygame.K_RIGHT, False)
+            game_keys['ctrl'] = game_keys.get('ctrl', False) or _keys.get(pygame.K_LCTRL, False) or _keys.get(pygame.K_RCTRL, False)
 
     game_update(dt, _state, game_keys)
 
@@ -202,6 +214,19 @@ def game_loop():
     kill_text = str(_state['killCount'])
     kt = font.render(kill_text, True, (240, 160, 0))
     _screen.blit(kt, (GAME_W - 100, hud_y + 26))
+
+    active_pu = None
+    for pp in _state['players']:
+        if not pp['dead'] and pp.get('powerup'):
+            active_pu = pp['powerup']
+            break
+    if active_pu:
+        pu_info = POWERUP_TYPES.get(active_pu, {})
+        pu_font = get_font(8)
+        pu_label = pu_info.get('label', active_pu)
+        pu_col = pu_info.get('color', (255, 255, 255))
+        pu_surf = pu_font.render('[' + pu_label + ']', True, pu_col)
+        _screen.blit(pu_surf, (GAME_W - 100, hud_y + 40))
 
     reloading = any(not p['dead'] and p.get('reloadTimer', 0) > 0 for p in _state['players'])
     if reloading:

@@ -13,12 +13,15 @@ def update(dt, state, keys):
         p['reloadTimer'] = max(0, p.get('reloadTimer', 0) - dt)
         p['heat'] = max(0, p.get('heat', 0) - dt * 3)
 
-        useWASD = state['currentMode'] == 1 and state.get('ctrlScheme', 'wasd') == 'wasd'
-        up = p['id'] == 0 and (keys.get('w') if useWASD else keys.get('up')) or (p['id'] != 0 and keys.get('w'))
-        dn = p['id'] == 0 and (keys.get('s') if useWASD else keys.get('down')) or (p['id'] != 0 and keys.get('s'))
-        lt = p['id'] == 0 and (keys.get('a') if useWASD else keys.get('left')) or (p['id'] != 0 and keys.get('a'))
-        rt = p['id'] == 0 and (keys.get('d') if useWASD else keys.get('right')) or (p['id'] != 0 and keys.get('d'))
-        sh = p['id'] == 0 and (keys.get('capslock') if useWASD else keys.get('shift')) or (p['id'] != 0 and keys.get('ctrl'))
+        ctrl_p = 'ctrlSchemeP1' if p['id'] == 0 else 'ctrlSchemeP2'
+        p_wasd = state.get(ctrl_p, 'wasd' if p['id'] == 0 else 'arrows') == 'wasd'
+        up = keys.get('w') if p_wasd else keys.get('up')
+        dn = keys.get('s') if p_wasd else keys.get('down')
+        lt = keys.get('a') if p_wasd else keys.get('left')
+        rt = keys.get('d') if p_wasd else keys.get('right')
+        sh = keys.get('capslock') if p_wasd else keys.get('shift')
+        if p['id'] != 0:
+            sh = sh or keys.get('ctrl')
 
         if up:
             p['y'] = max(p['minY'] + 12, p['y'] - p['speed'] * dt)
@@ -32,22 +35,42 @@ def update(dt, state, keys):
             p['lastDir'] = 1
 
         if sh and p['shootCd'] <= 0 and not p.get('reloadTimer'):
-            state['bullets'].append({
-                'x': p['x'] + (26 if p['lastDir'] > 0 else -18), 'y': p['y'],
-                'owner': p['id'], 'color': p['color'],
-                'w': 18, 'h': 5, 'dead': False,
-                'vx': 540 * p['lastDir']
-            })
+            shoot_cd = 0.1 if p.get('powerup') == 'rapid_fire' else 0.25
+            if p.get('powerup') == 'spread':
+                for ang in [-0.15, 0, 0.15]:
+                    cv, sv = math.cos(ang), math.sin(ang)
+                    state['bullets'].append({
+                        'x': p['x'] + (26 if p['lastDir'] > 0 else -18), 'y': p['y'],
+                        'owner': p['id'], 'color': p['color'],
+                        'w': 18, 'h': 5, 'dead': False,
+                        'vx': 540 * p['lastDir'] * cv,
+                        'vy': 540 * sv
+                    })
+            else:
+                state['bullets'].append({
+                    'x': p['x'] + (26 if p['lastDir'] > 0 else -18), 'y': p['y'],
+                    'owner': p['id'], 'color': p['color'],
+                    'w': 18, 'h': 5, 'dead': False,
+                    'vx': 540 * p['lastDir']
+                })
             import audio
             audio.play_disparo()
-            p['shootCd'] = 0.25
+            p['shootCd'] = shoot_cd
             p['heat'] = p.get('heat', 0) + 2
-            if p['heat'] >= 15:
+            if p['heat'] >= p.get('heatMax', 15):
                 p['heat'] = 0
                 p['reloadTimer'] = 2.0
 
+    if state.get('easterEgg'):
+        for p in state['players']:
+            if 'easterTimer' not in p:
+                p['easterTimer'] = 3.5
+            elif p['easterTimer'] > 0:
+                p['easterTimer'] -= dt
+
     for b in state['bullets']:
         b['x'] += b['vx'] * dt
+        b['y'] += b.get('vy', 0) * dt
         if b['x'] > state['GAME_W'] + 30 or b['x'] < -30:
             b['dead'] = True
         if state['currentMode'] == 2:
@@ -59,7 +82,8 @@ def update(dt, state, keys):
     state['spawnTimer'] -= dt
     if state['spawnTimer'] <= 0:
         spawnEnemy(state)
-        state['spawnTimer'] = max(0.5, 2.0 - state['killCount'] * 0.025)
+        wave_factor = {1: 0.025, 2: 0.03, 3: 0.035, 4: 0.04}.get(state['wave'], 0.025)
+        state['spawnTimer'] = max(0.3, 2.0 - state['killCount'] * wave_factor)
 
     for e in state['enemies']:
         e['x'] -= e['spd'] * dt
@@ -74,6 +98,7 @@ def update(dt, state, keys):
 
         e['y'] = clamp(e['y'], e['minY'], e['maxY'])
         e['shootCd'] -= dt
+        rage = state.get('wave3RageTimer', 0) > 0
         if e['shootCd'] <= 0 and random.random() < 0.35:
             if tgt:
                 if e['tier'] == 0:
@@ -82,6 +107,12 @@ def update(dt, state, keys):
                         'vx': -220, 'vy': 0,
                         'w': 11, 'h': 5, 'dead': False, 'zone': e['zone']
                     })
+                    if rage:
+                        state['eBullets'].append({
+                            'x': e['x'] - 14, 'y': e['y'],
+                            'vx': -220 * 0.866, 'vy': -220 * 0.5,
+                            'w': 11, 'h': 5, 'dead': False, 'zone': e['zone']
+                        })
                 elif e['tier'] == 1:
                     dx = tgt['x'] - e['x']
                     dy = tgt['y'] - e['y']
@@ -91,6 +122,18 @@ def update(dt, state, keys):
                         'vx': dx / d * 195, 'vy': dy / d * 195,
                         'w': 11, 'h': 5, 'dead': False, 'zone': e['zone']
                     })
+                    if rage:
+                        angle = random.choice([-1, 1])
+                        rad = math.radians(30 * angle)
+                        cv, sv = math.cos(rad), math.sin(rad)
+                        bvx = dx / d * 195
+                        bvy = dy / d * 195
+                        state['eBullets'].append({
+                            'x': e['x'] - 14, 'y': e['y'],
+                            'vx': bvx * cv - bvy * sv,
+                            'vy': bvx * sv + bvy * cv,
+                            'w': 11, 'h': 5, 'dead': False, 'zone': e['zone']
+                        })
                 else:
                     state['eBullets'].append({
                         'x': e['x'] - 14, 'y': e['y'],
@@ -98,6 +141,13 @@ def update(dt, state, keys):
                         'wave': True, 'waveOffset': random.random() * 100,
                         'w': 14, 'h': 6, 'dead': False, 'zone': e['zone']
                     })
+                    if rage:
+                        state['eBullets'].append({
+                            'x': e['x'] - 14, 'y': e['y'],
+                            'vx': -180 * 0.866, 'vy': -180 * 0.5,
+                            'wave': True, 'waveOffset': random.random() * 100,
+                            'w': 14, 'h': 6, 'dead': False, 'zone': e['zone']
+                        })
             e['shootCd'] = 1.3 + random.random() * 1.5
 
     state['enemies'] = [e for e in state['enemies'] if e['x'] > -60]
@@ -134,6 +184,8 @@ def update(dt, state, keys):
                     e['dead'] = True
                     state['killCount'] += 1
                     boom(e['x'], e['y'], e['col'], state)
+                    import audio as _a
+                    _a.play_explosion()
                     if b['owner'] == 0:
                         state['score1'] += e['pts']
                     else:
@@ -144,6 +196,16 @@ def update(dt, state, keys):
                         'color': (0, 255, 255) if b['owner'] == 0 else (255, 0, 255),
                         'life': 1.1, 'vy': -35
                     })
+
+                    if random.random() < 0.12 + e.get('tier', 0) * 0.06:
+                        ptype = random.choice(['rapid_fire', 'heat_up', 'shield', 'spread'])
+                        state['powerups'].append({
+                            'x': e['x'], 'y': e['y'],
+                            'type': ptype,
+                            'vx': -40, 'vy': 20 + random.random() * 20,
+                            'life': 8.0,
+                            'w': 16, 'h': 16,
+                        })
 
     state['bullets'] = [b for b in state['bullets'] if not b['dead']]
     state['enemies'] = [e for e in state['enemies'] if not e['dead']]
@@ -159,17 +221,62 @@ def update(dt, state, keys):
             if overlap(b['x'], b['y'] - b['h'] / 2, b['w'], b['h'],
                        p['x'] - 20, p['y'] - 11, 40, 22):
                 b['dead'] = True
-                import audio
-                audio.play_hit()
-                state['shake'] = 1.0
-                p['lives'] -= 1
-                p['invTimer'] = 2.0
-                boom(p['x'], p['y'], p['color'], state)
-                if p['lives'] <= 0:
-                    p['dead'] = True
-                    state.get('onPlayerDead', lambda x: None)(p)
+                if p.get('shield'):
+                    p['shield'] = False
+                    p['powerup'] = None
+                    p['powerupTimer'] = 0
+                    boom(p['x'], p['y'], (0, 200, 255), state)
+                else:
+                    import audio
+                    audio.play_hit()
+                    state['shake'] = 1.0
+                    p['lives'] -= 1
+                    p['invTimer'] = 2.0
+                    boom(p['x'], p['y'], p['color'], state)
+                    if p['lives'] <= 0:
+                        p['dead'] = True
+                        state.get('onPlayerDead', lambda x: None)(p)
 
     state['eBullets'] = [b for b in state['eBullets'] if not b['dead']]
+
+    for pu in state['powerups']:
+        pu['x'] += pu['vx'] * dt
+        pu['y'] += pu['vy'] * dt
+        pu['vy'] += 60 * dt
+        pu['life'] -= dt
+        for pp in state['players']:
+            if pp['dead']:
+                continue
+            mx, my = 8, 8
+            if overlap(pu['x'] - mx, pu['y'] - my, mx * 2, my * 2,
+                       pp['x'] - 20, pp['y'] - 11, 40, 22):
+                pu['life'] = -1
+                if pu['type'] == 'rapid_fire':
+                    pp['powerup'] = 'rapid_fire'
+                    pp['powerupTimer'] = 6.0
+                elif pu['type'] == 'spread':
+                    pp['powerup'] = 'spread'
+                    pp['powerupTimer'] = 6.0
+                elif pu['type'] == 'heat_up':
+                    pp['powerup'] = 'heat_up'
+                    pp['powerupTimer'] = 12.0
+                    pp['heatMax'] = 25
+                elif pu['type'] == 'shield':
+                    pp['shield'] = True
+                    pp['powerup'] = 'shield'
+                    pp['powerupTimer'] = 999
+    state['powerups'] = [pu for pu in state['powerups'] if pu['life'] > 0]
+
+    for p in state['players']:
+        if p.get('powerupTimer', 0) > 0:
+            p['powerupTimer'] -= dt
+            if p['powerupTimer'] <= 0:
+                if p.get('powerup') == 'heat_up':
+                    p['heatMax'] = 15
+                elif p.get('powerup') == 'shield':
+                    p['shield'] = False
+                p['powerup'] = None
+                p['powerupTimer'] = 0
 
     for e in state['enemies']:
         if e['dead']:
@@ -182,12 +289,18 @@ def update(dt, state, keys):
             if overlap(e['x'] - e['w'] / 2, e['y'] - e['h'] / 2, e['w'], e['h'],
                        p['x'] - 20, p['y'] - 11, 40, 22):
                 e['dead'] = True
-                p['lives'] -= 1
-                p['invTimer'] = 2.0
-                boom(e['x'], e['y'], e['col'], state)
-                if p['lives'] <= 0:
-                    p['dead'] = True
-                    state.get('onPlayerDead', lambda x: None)(p)
+                if p.get('shield'):
+                    p['shield'] = False
+                    p['powerup'] = None
+                    p['powerupTimer'] = 0
+                    boom(e['x'], e['y'], (0, 200, 255), state)
+                else:
+                    p['lives'] -= 1
+                    p['invTimer'] = 2.0
+                    boom(e['x'], e['y'], e['col'], state)
+                    if p['lives'] <= 0:
+                        p['dead'] = True
+                        state.get('onPlayerDead', lambda x: None)(p)
 
     state['enemies'] = [e for e in state['enemies'] if not e['dead']]
 
@@ -207,8 +320,17 @@ def update(dt, state, keys):
         state['wave'] = 1
     elif state['killCount'] < 30:
         state['wave'] = 2
-    else:
+    elif state['killCount'] < 50:
         state['wave'] = 3
+    else:
+        state['wave'] = 4
+
+    if state['wave'] != prevWave and state['wave'] == 4:
+        state['waveMsg'] = '\u2605 WAVE 4 \u2605 +1 \u2665'
+        state['waveMsgTimer'] = 2.0
+        for p in state['players']:
+            if not p['dead']:
+                p['lives'] += 1
 
     if state['wave'] != prevWave and state['wave'] == 3 and not state.get('bossMusicPlayed'):
         state['bossMusicPlayed'] = True
@@ -216,6 +338,7 @@ def update(dt, state, keys):
         audio.play_boss_music()
         state['waveMsg'] = '\u2605 BOSS INCOMING \u2605 +1 \u2665'
         state['waveMsgTimer'] = 2.0
+        state['wave3RageTimer'] = 10.0
         for p in state['players']:
             if not p['dead']:
                 p['lives'] += 1
@@ -228,6 +351,7 @@ def update(dt, state, keys):
                 p['lives'] += 1
 
     state['waveMsgTimer'] = max(0, state.get('waveMsgTimer', 0) - dt)
+    state['wave3RageTimer'] = max(0, state.get('wave3RageTimer', 0) - dt)
 
     alive = [p for p in state['players'] if not p['dead']]
     if len(alive) == 0:
@@ -248,13 +372,19 @@ def boom(x, y, color, state):
 
 
 def spawnEnemy(state):
+    wave = state.get('wave', 1)
+    max_enemies = {1: 6, 2: 8, 3: 11, 4: 15}.get(wave, 8)
+    if len(state['enemies']) >= max_enemies:
+        return
     roll = random.random()
     if state['killCount'] < 15:
         idx = 0
     elif state['killCount'] < 30:
         idx = 0 if roll < 0.5 else 1
-    else:
+    elif state['killCount'] < 50:
         idx = 0 if roll < 0.33 else (1 if roll < 0.66 else 2)
+    else:
+        idx = 0 if roll < 0.2 else (1 if roll < 0.5 else 2)
 
     t = ETYPES[idx]
     baseSpd = 35 + min(state['killCount'], 60) * 0.8

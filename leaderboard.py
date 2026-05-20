@@ -30,22 +30,33 @@ def load_settings():
     try:
         with open(SETTINGS_PATH, 'r') as f:
             d = json.load(f)
-            return d.get('ctrlScheme', 'wasd')
+            return {
+                'p1': d.get('ctrlSchemeP1', 'wasd'),
+                'p2': d.get('ctrlSchemeP2', 'arrows')
+            }
     except (FileNotFoundError, json.JSONDecodeError):
-        return 'wasd'
+        return {'p1': 'wasd', 'p2': 'arrows'}
 
 def save_settings():
     try:
         with open(SETTINGS_PATH, 'w') as f:
-            json.dump({'ctrlScheme': get_ctrl_scheme()}, f)
+            json.dump({'ctrlSchemeP1': _ctrl_p1, 'ctrlSchemeP2': _ctrl_p2}, f)
     except Exception:
         pass
 
-_ctrl_scheme = 'wasd'
+_ctrl_p1 = 'wasd'
+_ctrl_p2 = 'arrows'
 
 def set_ctrl_scheme(s):
-    global _ctrl_scheme
-    _ctrl_scheme = s
+    global _ctrl_p1
+    _ctrl_p1 = s
 
 def get_ctrl_scheme():
-    return _ctrl_scheme
+    return _ctrl_p1
+
+def set_ctrl_p2(s):
+    global _ctrl_p2
+    _ctrl_p2 = s
+
+def get_ctrl_p2():
+    return _ctrl_p2

@@ -23,5 +23,12 @@ P2_COLOR = (255, 0, 255)
 P2_DARK = (68, 0, 51)
 HUD_COLOR = (240, 160, 0)
 
+POWERUP_TYPES = {
+    'rapid_fire': {'color': (255, 255, 0), 'label': 'RAPIDO', 'desc': 'Disparo Rapido'},
+    'heat_up':    {'color': (255, 120, 0), 'label': 'CALOR+', 'desc': '+10 Disparos'},
+    'shield':     {'color': (0, 200, 255), 'label': 'ESCUDO', 'desc': 'Escudo 1 Hit'},
+    'spread':     {'color': (0, 255, 100), 'label': 'SPREAD', 'desc': 'Triple Disparo'},
+}
+
 MENU_BG = (10, 0, 16)
 GAME_BG = (0, 0, 0)
