@@ -1,6 +1,6 @@
 import math
 import random
-from config import ETYPES
+from config import ETYPES, POWERUP_TYPES
 
 def update(dt, state, keys):
     state['shake'] = max(0, state.get('shake', 0) - dt * 2.5)
@@ -82,7 +82,7 @@ def update(dt, state, keys):
     state['spawnTimer'] -= dt
     if state['spawnTimer'] <= 0:
         spawnEnemy(state)
-        wave_factor = {1: 0.025, 2: 0.03, 3: 0.035, 4: 0.04}.get(state['wave'], 0.025)
+        wave_factor = {1: 0.025, 2: 0.03, 3: 0.035, 4: 0.04, 5: 0.045}.get(state['wave'], 0.05)
         state['spawnTimer'] = max(0.3, 2.0 - state['killCount'] * wave_factor)
 
     for e in state['enemies']:
@@ -251,7 +251,6 @@ def update(dt, state, keys):
             if overlap(pu['x'] - mx, pu['y'] - my, mx * 2, my * 2,
                        pp['x'] - 20, pp['y'] - 11, 40, 22):
                 pu['life'] = -1
-                break
                 if pu['type'] == 'rapid_fire':
                     pp['powerup'] = 'rapid_fire'
                     pp['powerupTimer'] = 6.0
@@ -266,6 +265,9 @@ def update(dt, state, keys):
                     pp['shield'] = True
                     pp['powerup'] = 'shield'
                     pp['powerupTimer'] = 999
+                state['puPickupMsg'] = '+' + POWERUP_TYPES.get(pu['type'], {}).get('label', pu['type'])
+                state['puPickupTimer'] = 2.0
+                break
     state['powerups'] = [pu for pu in state['powerups'] if pu['life'] > 0]
 
     for p in state['players']:
@@ -323,35 +325,58 @@ def update(dt, state, keys):
         state['wave'] = 2
     elif state['killCount'] < 50:
         state['wave'] = 3
-    else:
+    elif state['killCount'] < 80:
         state['wave'] = 4
+    else:
+        state['wave'] = 5 + (state['killCount'] - 80) // 40
 
-    if state['wave'] != prevWave and state['wave'] == 4:
-        state['waveMsg'] = '\u2605 WAVE 4 \u2605 +1 \u2665'
-        state['waveMsgTimer'] = 2.0
-        for p in state['players']:
-            if not p['dead']:
-                p['lives'] += 1
+    if state['wave'] != prevWave:
+        if state['wave'] == 2:
+            state['waveMsg'] = '\u2605 WAVE 2 \u2605 +1 \u2665'
+            state['waveMsgTimer'] = 2.0
+            for p in state['players']:
+                if not p['dead']:
+                    p['lives'] += 1
+        elif state['wave'] == 3:
+            state['waveMsg'] = '\u2605 WAVE 3 \u2605 +1 \u2665'
+            state['waveMsgTimer'] = 2.0
+            for p in state['players']:
+                if not p['dead']:
+                    p['lives'] += 1
+        elif state['wave'] == 4:
+            state['waveMsg'] = '\u2605 WAVE 4 \u2605 +1 \u2665'
+            state['waveMsgTimer'] = 2.0
+            for p in state['players']:
+                if not p['dead']:
+                    p['lives'] += 1
+        elif state['wave'] == 5 and not state.get('bossMusicPlayed'):
+            state['bossMusicPlayed'] = True
+            import audio
+            audio.play_boss_music()
+            state['waveMsg'] = '\u2605 WAVE 5 \u2605 BOSS INCOMING \u2605 +1 \u2665'
+            state['waveMsgTimer'] = 3.0
+            state['wave3RageTimer'] = 10.0
+            for p in state['players']:
+                if not p['dead']:
+                    p['lives'] += 1
+        elif state['wave'] > 5:
+            state['waveMsg'] = '\u2605 WAVE {} \u2605 +1 \u2665'.format(state['wave'])
+            state['waveMsgTimer'] = 2.0
+            for p in state['players']:
+                if not p['dead']:
+                    p['lives'] += 1
 
-    if state['wave'] != prevWave and state['wave'] == 3 and not state.get('bossMusicPlayed'):
-        state['bossMusicPlayed'] = True
-        import audio
-        audio.play_boss_music()
-        state['waveMsg'] = '\u2605 BOSS INCOMING \u2605 +1 \u2665'
-        state['waveMsgTimer'] = 2.0
-        state['wave3RageTimer'] = 10.0
-        for p in state['players']:
-            if not p['dead']:
-                p['lives'] += 1
-
-    if state['wave'] != prevWave and state['wave'] == 2:
-        state['waveMsg'] = '\u2605 WAVE 2 \u2605 +1 \u2665'
-        state['waveMsgTimer'] = 2.0
-        for p in state['players']:
-            if not p['dead']:
-                p['lives'] += 1
+    # Boss beaten → show GANASTE once
+    if (state.get('bossMusicPlayed') and
+        state.get('wave3RageTimer', 0) <= 0 and
+        not state.get('gameBeaten') and
+        state.get('wave', 1) >= 5):
+        state['gameBeaten'] = True
+        state['waveMsg'] = '\u2605\u2605 GANASTE \u2605\u2605'
+        state['waveMsgTimer'] = 3.0
 
     state['waveMsgTimer'] = max(0, state.get('waveMsgTimer', 0) - dt)
+    state['puPickupTimer'] = max(0, state.get('puPickupTimer', 0) - dt)
     state['wave3RageTimer'] = max(0, state.get('wave3RageTimer', 0) - dt)
 
     alive = [p for p in state['players'] if not p['dead']]
@@ -374,7 +399,7 @@ def boom(x, y, color, state):
 
 def spawnEnemy(state):
     wave = state.get('wave', 1)
-    max_enemies = {1: 6, 2: 8, 3: 11, 4: 15}.get(wave, 8)
+    max_enemies = {1: 6, 2: 8, 3: 11, 4: 15, 5: 18}.get(wave, 20)
     if len(state['enemies']) >= max_enemies:
         return
     roll = random.random()
@@ -384,8 +409,10 @@ def spawnEnemy(state):
         idx = 0 if roll < 0.5 else 1
     elif state['killCount'] < 50:
         idx = 0 if roll < 0.33 else (1 if roll < 0.66 else 2)
-    else:
+    elif state['killCount'] < 80:
         idx = 0 if roll < 0.2 else (1 if roll < 0.5 else 2)
+    else:
+        idx = 0 if roll < 0.1 else (1 if roll < 0.3 else 2)
 
     t = ETYPES[idx]
     baseSpd = 35 + min(state['killCount'], 60) * 0.8

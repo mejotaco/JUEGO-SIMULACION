@@ -61,11 +61,14 @@ def start_game(mode, p1_name, p2_name, ctrl_p1='wasd', ctrl_p2='arrows', easter=
         'particles': [],
         'scorePopups': [],
         'gameOver': False,
+        'gameBeaten': False,
         'spawnTimer': 2.0 * 0.2,
         'lastTime': 0,
         'powerups': [],
         'waveMsg': '',
         'waveMsgTimer': 0,
+        'puPickupMsg': '',
+        'puPickupTimer': 0,
         'loserShown': False,
         'loserShown2P': False,
 
@@ -191,6 +194,19 @@ def game_loop():
             txt = sf.render(msg, True, (255, 204, 0))
             tr = txt.get_rect(center=(GAME_W // 2, 55))
             _screen.blit(txt, tr)
+
+    if _state.get('puPickupTimer', 0) > 0:
+        msg = _state.get('puPickupMsg', '')
+        if msg:
+            pf = get_font(14)
+            shadow = pf.render(msg, True, (0, 0, 0))
+            main = pf.render(msg, True, (255, 255, 255))
+            cx, cy = GAME_W // 2, 80
+            for dx, dy in [(-1,-1),(-1,1),(1,-1),(1,1)]:
+                sr = shadow.get_rect(center=(cx + dx, cy + dy))
+                _screen.blit(shadow, sr)
+            mr = main.get_rect(center=(cx, cy))
+            _screen.blit(main, mr)
 
     hud_y = -5
     font = get_font(10)
