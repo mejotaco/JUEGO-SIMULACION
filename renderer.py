@@ -8,11 +8,12 @@ ASSETS = os.path.join(os.path.dirname(__file__), 'assets')
 
 player_sheet = None
 helicopter_sheet = None
+zeppelin_sheet = None
 bg_image = None
 enemy_sprites = [None, None, None]
 
 def load_assets():
-    global player_sheet, helicopter_sheet, bg_image, enemy_sprites
+    global player_sheet, helicopter_sheet, zeppelin_sheet, bg_image, enemy_sprites
     try:
         player_sheet = pygame.image.load(os.path.join(ASSETS, 'ships', 'player001_sheet.png')).convert_alpha()
     except Exception:
@@ -21,6 +22,10 @@ def load_assets():
         helicopter_sheet = pygame.image.load(os.path.join(ASSETS, 'enemies', 'helicopter_sheet.png')).convert_alpha()
     except Exception:
         helicopter_sheet = None
+    try:
+        zeppelin_sheet = pygame.image.load(os.path.join(ASSETS, 'enemies', 'zeppelin_sheet.png')).convert_alpha()
+    except Exception:
+        zeppelin_sheet = None
     try:
         bg_image = pygame.image.load(os.path.join(ASSETS, 'backgrounds', 'space_bg.png')).convert()
     except Exception:
@@ -141,6 +146,37 @@ def render(screen, state, get_font):
         tr = txt.get_rect(center=(int(s['x']) + shake_dx, int(s['y']) + shake_dy))
         screen.blit(txt, tr)
 
+    # ─────────────────────────────
+    # LEVEL TRANSITION
+    # ─────────────────────────────
+    level = state.get('wave', 1)
+
+    if state.get('lastShownWave') != level:
+        state['lastShownWave'] = level
+        state['waveTransitionTimer'] = 2.5
+
+    if state.get('waveTransitionTimer', 0) > 0:
+        state['waveTransitionTimer'] -= 1 / 60
+
+        t = state['waveTransitionTimer']
+        alpha = max(0, min(180, int(t * 120)))
+
+        overlay = pygame.Surface((GAME_W, GAME_H), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, alpha))
+        screen.blit(overlay, (0, 0))
+
+        title_font = get_font(28)
+        txt = title_font.render(f'NIVEL {level}', True, (255, 255, 255))
+
+        scale = 1 + math.sin(pygame.time.get_ticks() * 0.008) * 0.04
+        tw = int(txt.get_width() * scale)
+        th = int(txt.get_height() * scale)
+        txt = pygame.transform.scale(txt, (tw, th))
+
+        txt.set_alpha(max(0, min(255, int(t * 220))))
+        rect = txt.get_rect(center=(GAME_W // 2, GAME_H // 2))
+        screen.blit(txt, rect)
+
 def draw_player(screen, p, shake_dx=0, shake_dy=0, get_font=None):
     if p.get('easterTimer', 0) > 0:
         bob = math.sin(pygame.time.get_ticks() * 0.008) * 3
@@ -174,29 +210,73 @@ def draw_player(screen, p, shake_dx=0, shake_dy=0, get_font=None):
         draw_pixel_ship_fallback(screen, p, shake_dx, shake_dy)
 
 def draw_enemy(screen, e, shake_dx=0, shake_dy=0):
-    if e.get('tier') == 1 and helicopter_sheet:
-        frame = int(pygame.time.get_ticks() / 140) % 2
-        x, y = int(e['x']), int(e['y'])
-        spr = helicopter_sheet.subsurface(frame * HELI_FW, 0, HELI_FW, HELI_FH)
-        screen.blit(spr, (x - HELI_FW // 2 + shake_dx, y - HELI_FH // 2 + shake_dy))
-        bw = 32
-        pygame.draw.rect(screen, (34, 34, 34), (x - bw // 2 + shake_dx, y + 22 + shake_dy, bw, 4))
-        ratio = e['hp'] / e['maxHp']
-        pygame.draw.rect(screen, (255, 204, 0), (x - bw // 2 + shake_dx, y + 22 + shake_dy, max(1, int(bw * ratio)), 4))
-    elif e.get('tier') == 2:
-        x, y = int(e['x']), int(e['y'])
-        idx = e.get('spriteIdx', 0)
-        spr = enemy_sprites[idx]
-        if spr:
-            scaled = pygame.transform.scale(spr, (e['w'], e['h']))
-            screen.blit(scaled, (x - e['w'] // 2 + shake_dx, y - e['h'] // 2 + shake_dy))
+    tier = e.get('tier', 1)
+    x, y = int(e['x']), int(e['y'])
+
+    if tier == 0:
+        if zeppelin_sheet:
+            try:
+                frame = int(pygame.time.get_ticks() / 140) % 2
+                sheet_w, sheet_h = zeppelin_sheet.get_size()
+                frame_w = sheet_w // 2
+                frame_h = sheet_h
+                rect = pygame.Rect(frame * frame_w, 0, frame_w, frame_h)
+                spr_frame = zeppelin_sheet.subsurface(rect)
+                zeppelin_w = int(e['w'] * 2.2)
+                zeppelin_h = int(e['h'] * 2.2)
+
+                scaled = pygame.transform.scale(spr_frame, (zeppelin_w, zeppelin_h))
+
+                screen.blit(
+                    scaled,
+                    (
+                        x - zeppelin_w // 2 + shake_dx,
+                        y - zeppelin_h // 2 + shake_dy
+                    )
+                )
+            except Exception:
+                draw_pixel_enemy_fallback(screen, e, shake_dx, shake_dy)
         else:
             draw_pixel_enemy_fallback(screen, e, shake_dx, shake_dy)
+
+        bw = e['w'] - 8
+        ratio = e['hp'] / e['maxHp']
+        bar_y = y + e['h'] // 2 + 3
+        pygame.draw.rect(screen, (34, 34, 34), (x - bw // 2 + shake_dx, bar_y + shake_dy, bw, 4))
+        hp_color = (0, 255, 102) if ratio > 0.6 else (255, 204, 0) if ratio > 0.3 else (255, 51, 0)
+        pygame.draw.rect(screen, hp_color, (x - bw // 2 + shake_dx, bar_y + shake_dy, max(1, int(bw * ratio)), 4))
+
+    elif tier == 1:
+        if helicopter_sheet:
+            frame = int(pygame.time.get_ticks() / 140) % 2
+            spr = helicopter_sheet.subsurface(frame * HELI_FW, 0, HELI_FW, HELI_FH)
+            screen.blit(spr, (x - HELI_FW // 2 + shake_dx, y - HELI_FH // 2 + shake_dy))
+
+            bw = 32
+            pygame.draw.rect(screen, (34, 34, 34), (x - bw // 2 + shake_dx, y + 22 + shake_dy, bw, 4))
+            ratio = e['hp'] / e['maxHp']
+            pygame.draw.rect(screen, (255, 204, 0), (x - bw // 2 + shake_dx, y + 22 + shake_dy, max(1, int(bw * ratio)), 4))
+        else:
+            draw_pixel_enemy_fallback(screen, e, shake_dx, shake_dy)
+
+    elif tier == 2:
+        idx = e.get('spriteIdx', 0)
+        if 0 <= idx < len(enemy_sprites):
+            spr = enemy_sprites[idx]
+            if spr:
+                scaled = pygame.transform.scale(spr, (e['w'], e['h']))
+                screen.blit(scaled, (x - e['w'] // 2 + shake_dx, y - e['h'] // 2 + shake_dy))
+            else:
+                draw_pixel_enemy_fallback(screen, e, shake_dx, shake_dy)
+        else:
+            draw_pixel_enemy_fallback(screen, e, shake_dx, shake_dy)
+
         bw = e['w'] - 8
         ratio = e['hp'] / e['maxHp']
         pygame.draw.rect(screen, (34, 34, 34), (x - bw // 2 + shake_dx, y + e['h'] // 2 + 3 + shake_dy, bw, 4))
         hp_color = (0, 255, 102) if ratio > 0.6 else (255, 204, 0) if ratio > 0.3 else (255, 51, 0)
         pygame.draw.rect(screen, hp_color, (x - bw // 2 + shake_dx, y + e['h'] // 2 + 3 + shake_dy, max(1, int(bw * ratio)), 4))
+
     else:
         draw_pixel_enemy_fallback(screen, e, shake_dx, shake_dy)
 

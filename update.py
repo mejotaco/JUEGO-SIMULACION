@@ -251,6 +251,7 @@ def update(dt, state, keys):
             if overlap(pu['x'] - mx, pu['y'] - my, mx * 2, my * 2,
                        pp['x'] - 20, pp['y'] - 11, 40, 22):
                 pu['life'] = -1
+                break
                 if pu['type'] == 'rapid_fire':
                     pp['powerup'] = 'rapid_fire'
                     pp['powerupTimer'] = 6.0
