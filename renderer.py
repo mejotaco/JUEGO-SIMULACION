@@ -1,7 +1,7 @@
 import pygame
 import os
 import math
-import random
+from rng import rng
 from config import WHITE, P1_COLOR, P1_DARK, P2_COLOR, P2_DARK, POWERUP_TYPES
 
 ASSETS = os.path.join(os.path.dirname(__file__), 'assets')
@@ -67,8 +67,8 @@ def render(screen, state, get_font):
     shake_dy = 0
     if shake > 0:
         power = shake * 22
-        shake_dx = int((1 if random.random() > 0.5 else -1) * power)
-        shake_dy = int((1 if random.random() > 0.5 else -1) * power)
+        shake_dx = int((1 if rng.random() > 0.5 else -1) * power)
+        shake_dy = int((1 if rng.random() > 0.5 else -1) * power)
 
     if bg_image:
         full_h = screen.get_height()

@@ -1,5 +1,5 @@
 import pygame
-import random
+from rng import rng
 import math
 from config import GAME_W, MENU_BG, POWERUP_TYPES
 import audio
@@ -74,11 +74,11 @@ def start_game(mode, p1_name, p2_name, ctrl_p1='wasd', ctrl_p2='arrows', easter=
 
         'starField': [
             {
-                'x': random.random() * GAME_W,
-                'y': random.random() * game_h,
-                'spd': 20 + random.random() * 80,
-                'r': max(1, int(random.random() * 2)),
-                'a': 0.2 + random.random() * 0.7
+                'x': rng.random() * GAME_W,
+                'y': rng.random() * game_h,
+                'spd': 20 + rng.random() * 80,
+                'r': max(1, int(rng.random() * 2)),
+                'a': 0.2 + rng.random() * 0.7
             } for _ in range(80)
         ],
 

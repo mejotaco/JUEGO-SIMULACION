@@ -1,6 +1,6 @@
 import pygame
 import sys
-import random
+from rng import rng
 import math
 import os
 from config import *
@@ -38,7 +38,6 @@ joystick = None
 if pygame.joystick.get_count() > 0:
     try:
         joystick = pygame.joystick.Joystick(0)
-        joystick.init()
     except Exception:
         joystick = None
 
@@ -64,9 +63,9 @@ def native_coords(x, y):
     return x * NATIVE_W // w, y * NATIVE_H // h
 
 # ── Menu stars ──
-menu_stars = [{'x': random.random() * NATIVE_W, 'y': random.random() * NATIVE_H,
-               'spd': 10 + random.random() * 40, 'r': 1 + int(random.random() * 2),
-               'a': 0.15 + random.random() * 0.6} for _ in range(60)]
+menu_stars = [{'x': rng.random() * NATIVE_W, 'y': rng.random() * NATIVE_H,
+               'spd': 10 + rng.random() * 40, 'r': 1 + int(rng.random() * 2),
+               'a': 0.15 + rng.random() * 0.6} for _ in range(60)]
 
 def play_select():
     try:
@@ -143,7 +142,7 @@ def render_starfield(surf, stars, dt):
         s['x'] -= s['spd'] * dt
         if s['x'] < -4:
             s['x'] = NATIVE_W + 4
-            s['y'] = random.random() * NATIVE_H
+            s['y'] = rng.random() * NATIVE_H
         a = int(s['a'] * 255)
         star = pygame.Surface((s['r'], s['r']), pygame.SRCALPHA)
         star.fill((255, 255, 255, a))
@@ -174,7 +173,7 @@ def render_menu(dt):
             draw_text(native, entry['name'], (bx + 38, ry), 8, (240, 160, 0))
             draw_text(native, str(entry['score']).zfill(5), (bx + 260, ry), 8, (0, 255, 255))
 
-    items = ['1 JUGADOR', '2 JUGADORES', 'C\u00d3MO JUGAR', 'AJUSTES']
+    items = ['1 JUGADOR', '2 JUGADORES', 'C\u00d3MO JUGAR', 'PUNTAJES', 'AJUSTES']
     iy = 302
     mx, my = pygame.mouse.get_pos()
     mx, my = native_coords(mx, my)
@@ -320,6 +319,25 @@ def render_settings():
 
     draw_text_centered(native, '\u25c0 VOLVER', NATIVE_H - 40, 12, (240, 160, 0))
 
+def render_scores():
+    native.fill(MENU_BG)
+    render_starfield(native, menu_stars, 0.016)
+    draw_text_centered(native, '\u2605 PUNTAJES \u2605', 40, 22, (240, 160, 0))
+    board = load_board()
+    if not board:
+        draw_text_centered(native, '\u2014 SIN PUNTUACIONES \u2014', NATIVE_H // 2 - 20, 10, (51, 51, 51))
+    else:
+        medals = ['\u2605', '2', '3', '4', '5']
+        mc = (255, 215, 0)
+        for i, entry in enumerate(board):
+            ry = 90 + i * 50
+            mc = (255, 215, 0) if i == 0 else (85, 85, 85)
+            draw_text(native, '{}. {}'.format(i + 1, entry['name']), (NATIVE_W // 2 - 120, ry), 12, mc)
+            draw_text(native, str(entry['score']).zfill(5), (NATIVE_W // 2 + 80, ry), 12, (0, 255, 255), align='right')
+            if i < 4:
+                pygame.draw.line(native, (34, 34, 34), (NATIVE_W // 2 - 130, ry + 32), (NATIVE_W // 2 + 130, ry + 32))
+    draw_text_centered(native, '\u25c0 VOLVER', NATIVE_H - 40, 12, (240, 160, 0))
+
 def render_pause():
     overlay = pygame.Surface((NATIVE_W, NATIVE_H), pygame.SRCALPHA)
     overlay.fill((0, 0, 0, 217))
@@ -374,7 +392,7 @@ def start_game_now():
     p2 = (name_input2.strip() or 'P2').upper()[:8]
     p1_name = p1
     p2_name = p2
-    easter = 'CHESTER' in (p1, p2)
+    easter = 'CHESTERS' in (p1, p2)
     start_game(pending_mode, p1, p2, ctrl_scheme, ctrl_scheme_p2, easter)
     STATE = 'playing'
     cinematic = None
@@ -385,7 +403,7 @@ def check_mouse_click(mx, my):
     global STATE, menu_cursor, pending_mode, input_active, name_input, name_input2, p1_name, p2_name, ctrl_scheme, ctrl_scheme_p2
     global settings_music_vol, settings_sfx_vol, cinematic, game_over_state, loser_banner, loser_banner_timer
     if STATE == 'menu':
-        for i in range(4):
+        for i in range(5):
             r = pygame.Rect(NATIVE_W // 2 - 145, 302 + i * 42, 290, 36)
             if r.collidepoint(mx, my):
                 play_select()
@@ -397,6 +415,8 @@ def check_mouse_click(mx, my):
                 elif i == 2:
                     STATE = 'how_to_play'
                 elif i == 3:
+                    STATE = 'scores'
+                elif i == 4:
                     STATE = 'settings'
                 return
     elif STATE == 'how_to_play':
@@ -420,6 +440,9 @@ def check_mouse_click(mx, my):
             if pygame.Rect(NATIVE_W // 2 - 130, 344 + i * 38, 260, 32).collidepoint(mx, my):
                 settings_ctrl_p2 = 'wasd' if i == 0 else 'arrows'
                 set_ctrl_p2(settings_ctrl_p2); save_settings(); ctrl_scheme_p2 = settings_ctrl_p2
+        if NATIVE_H - 55 <= my <= NATIVE_H - 25:
+            play_select(); STATE = 'menu'
+    elif STATE == 'scores':
         if NATIVE_H - 55 <= my <= NATIVE_H - 25:
             play_select(); STATE = 'menu'
     elif STATE == 'name_entry':
@@ -509,13 +532,13 @@ def handle_controller():
                 resume_game()
                 STATE = 'playing'
 
-        if STATE in ('menu', 'how_to_play', 'settings'):
+        if STATE in ('menu', 'how_to_play', 'settings', 'scores'):
             if (dpad_u or axis_y < -0.5) and not _axis_u_prev:
                 if menu_cursor > 0:
                     menu_cursor -= 1
                     play_hover()
             if (dpad_d or axis_y > 0.5) and not _axis_d_prev:
-                if STATE == 'menu' and menu_cursor < 3:
+                if STATE == 'menu' and menu_cursor < 4:
                     menu_cursor += 1
                     play_hover()
             _axis_u_prev = dpad_u or axis_y < -0.5
@@ -531,14 +554,16 @@ def handle_controller():
                     elif menu_cursor == 2:
                         STATE = 'how_to_play'
                     elif menu_cursor == 3:
+                        STATE = 'scores'
+                    elif menu_cursor == 4:
                         STATE = 'settings'
                 elif STATE == 'how_to_play':
                     STATE = 'menu'
-                elif STATE == 'settings':
+                elif STATE in ('settings', 'scores'):
                     STATE = 'menu'
 
             if _btn_edge(1, b_btn):
-                if STATE in ('how_to_play', 'settings'):
+                if STATE in ('how_to_play', 'settings', 'scores'):
                     play_select(); STATE = 'menu'
 
         elif STATE == 'game_over':
@@ -571,9 +596,9 @@ while running:
         if event.type == pygame.KEYDOWN:
             if STATE == 'menu':
                 if event.key == pygame.K_UP:
-                    menu_cursor = (menu_cursor - 1) % 4; play_hover()
+                    menu_cursor = (menu_cursor - 1) % 5; play_hover()
                 elif event.key == pygame.K_DOWN:
-                    menu_cursor = (menu_cursor + 1) % 4; play_hover()
+                    menu_cursor = (menu_cursor + 1) % 5; play_hover()
                 elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                     play_select()
                     if menu_cursor == 0:
@@ -583,6 +608,8 @@ while running:
                     elif menu_cursor == 2:
                         STATE = 'how_to_play'
                     elif menu_cursor == 3:
+                        STATE = 'scores'
+                    elif menu_cursor == 4:
                         STATE = 'settings'
 
             elif STATE == 'how_to_play':
@@ -591,6 +618,10 @@ while running:
 
             elif STATE == 'settings':
                 if event.key == pygame.K_ESCAPE:
+                    play_select(); STATE = 'menu'
+
+            elif STATE == 'scores':
+                if event.key in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_SPACE):
                     play_select(); STATE = 'menu'
 
             elif STATE == 'name_entry':
@@ -655,6 +686,8 @@ while running:
         render_name_entry()
     elif STATE == 'settings':
         render_settings()
+    elif STATE == 'scores':
+        render_scores()
     elif STATE == 'playing':
         s = get_state()
         if cinematic:
@@ -687,7 +720,7 @@ while running:
             if loser_banner_timer > 0:
                 loser_banner_timer -= dt
                 if 'loser_title' not in loser_banner:
-                    loser_banner['loser_title'] = random.choice(LOSER_TITLES)
+                    loser_banner['loser_title'] = rng.choice(LOSER_TITLES)
                 title = loser_banner['loser_title']
                 draw_text_centered(native, '\u2620 ' + title + ' \u2620', NATIVE_H // 3 - 10, 12, (255, 51, 51))
                 draw_text_centered(native, loser_banner['name'] + ' HA SIDO ELIMINADO', NATIVE_H // 3 + 15, 8, (255, 170, 0))

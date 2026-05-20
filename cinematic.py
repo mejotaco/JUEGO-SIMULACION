@@ -1,11 +1,11 @@
 import pygame
-import random
+from rng import rng
 import math
 from config import LOSER_TITLES
 from utils import get_font_safe
 
 def random_loser_title():
-    return random.choice(LOSER_TITLES)
+    return rng.choice(LOSER_TITLES)
 
 class CrashCinematic:
     def __init__(self, screen, player_color, player_name, game_h, on_done):
@@ -39,10 +39,10 @@ class CrashCinematic:
         self.bg_stars = []
         for _ in range(60):
             self.bg_stars.append({
-                'x': random.random() * self.W,
-                'y': random.random() * (game_h * 0.55),
-                'r': max(1, int(random.random() * 2)),
-                'a': 0.2 + random.random() * 0.6
+                'x': rng.random() * self.W,
+                'y': rng.random() * (game_h * 0.55),
+                'r': max(1, int(rng.random() * 2)),
+                'a': 0.2 + rng.random() * 0.6
             })
 
         self.loser_shown_title = None
@@ -51,33 +51,33 @@ class CrashCinematic:
     def spawn_explosion(self, x, y, count, max_r, max_spd):
         colors = [(255, 68, 0), (255, 170, 0), (255, 255, 0), (255, 102, 0), (255, 255, 255)]
         for _ in range(count):
-            a = random.random() * math.pi * 2
-            spd = 20 + random.random() * max_spd
-            life = 0.6 + random.random() * 1.2
+            a = rng.random() * math.pi * 2
+            spd = 20 + rng.random() * max_spd
+            life = 0.6 + rng.random() * 1.2
             self.exp_particles.append({
                 'x': x, 'y': y,
                 'vx': math.cos(a) * spd,
-                'vy': math.sin(a) * spd - random.random() * 30,
-                'r': 3 + int(random.random() * max_r),
+                'vy': math.sin(a) * spd - rng.random() * 30,
+                'r': 3 + int(rng.random() * max_r),
                 'life': life, 'maxLife': life,
-                'color': random.choice(colors)
+                'color': rng.choice(colors)
             })
 
     def spawn_debris(self, x, y):
         colors = [(136, 136, 136), (170, 170, 170), (255, 102, 0), (204, 204, 204)]
         for _ in range(20):
-            a = -math.pi / 2 + (random.random() - 0.5) * math.pi * 1.2
-            spd = 40 + random.random() * 120
+            a = -math.pi / 2 + (rng.random() - 0.5) * math.pi * 1.2
+            spd = 40 + rng.random() * 120
             self.debris.append({
                 'x': x, 'y': y,
                 'vx': math.cos(a) * spd,
                 'vy': math.sin(a) * spd,
-                'w': 4 + int(random.random() * 10),
-                'h': 4 + int(random.random() * 10),
-                'rot': random.random() * math.pi,
-                'rotSpd': (random.random() - 0.5) * 6,
-                'life': 2 + random.random() * 2,
-                'color': random.choice(colors)
+                'w': 4 + int(rng.random() * 10),
+                'h': 4 + int(rng.random() * 10),
+                'rot': rng.random() * math.pi,
+                'rotSpd': (rng.random() - 0.5) * 6,
+                'life': 2 + rng.random() * 2,
+                'color': rng.choice(colors)
             })
 
     def draw_tower(self, x):
@@ -87,7 +87,7 @@ class CrashCinematic:
             for col in range(3):
                 wx = x + 5 + col * 12
                 wy = body_y + 10 + row * 28
-                c = (255, 238, 136) if random.random() < 0.15 else (34, 34, 34)
+                c = (255, 238, 136) if rng.random() < 0.15 else (34, 34, 34)
                 pygame.draw.rect(self.screen, c, (wx, wy, 8, 10))
         pygame.draw.rect(self.screen, (102, 102, 102), (x + self.tower_w // 2 - 4, self.tower_top_y, 8, self.tower_top_h))
         pygame.draw.rect(self.screen, (136, 136, 136), (x + self.tower_w // 2 - 2, self.tower_top_y - 20, 4, 22))
@@ -131,7 +131,7 @@ class CrashCinematic:
             pygame.draw.rect(self.screen, (26, 26, 26), (bxi, self.game_h - bhi, bwi, bhi))
             for rr in range(bhi // 16):
                 for cc in range(bwi // 12):
-                    col2 = (85, 68, 0) if random.random() < 0.3 else (26, 26, 10)
+                    col2 = (85, 68, 0) if rng.random() < 0.3 else (26, 26, 10)
                     pygame.draw.rect(self.screen, col2, (bxi + 3 + cc * 12, self.game_h - bhi + 4 + rr * 16, 7, 8))
 
         self.draw_tower(self.tower1_x)
@@ -143,14 +143,14 @@ class CrashCinematic:
         wobble = (progress - 0.7) / 0.3 * math.sin(self.t * 25) * 4 if progress > 0.7 else 0
 
         if not self.exploded:
-            if self.t < 2.2 and random.random() < 0.6:
+            if self.t < 2.2 and rng.random() < 0.6:
                 self.smoke_trails.append({
                     'x': ship_x - 10, 'y': ship_y + wobble,
-                    'vx': -15 - random.random() * 10,
-                    'vy': (random.random() - 0.5) * 8,
-                    'r': 3 + random.random() * 4,
-                    'life': 0.8 + random.random() * 0.4,
-                    'base': 80 + int(random.random() * 40)
+                    'vx': -15 - rng.random() * 10,
+                    'vy': (rng.random() - 0.5) * 8,
+                    'r': 3 + rng.random() * 4,
+                    'life': 0.8 + rng.random() * 0.4,
+                    'base': 80 + int(rng.random() * 40)
                 })
             new_smoke = []
             for s in self.smoke_trails:

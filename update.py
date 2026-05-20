@@ -1,5 +1,5 @@
 import math
-import random
+from rng import rng
 from config import ETYPES, POWERUP_TYPES
 
 def update(dt, state, keys):
@@ -99,7 +99,7 @@ def update(dt, state, keys):
         e['y'] = clamp(e['y'], e['minY'], e['maxY'])
         e['shootCd'] -= dt
         rage = state.get('wave3RageTimer', 0) > 0
-        if e['shootCd'] <= 0 and random.random() < 0.35:
+        if e['shootCd'] <= 0 and rng.random() < 0.35:
             if tgt:
                 if e['tier'] == 0:
                     state['eBullets'].append({
@@ -123,7 +123,7 @@ def update(dt, state, keys):
                         'w': 11, 'h': 5, 'dead': False, 'zone': e['zone']
                     })
                     if rage:
-                        angle = random.choice([-1, 1])
+                        angle = rng.choice([-1, 1])
                         rad = math.radians(30 * angle)
                         cv, sv = math.cos(rad), math.sin(rad)
                         bvx = dx / d * 195
@@ -138,17 +138,17 @@ def update(dt, state, keys):
                     state['eBullets'].append({
                         'x': e['x'] - 14, 'y': e['y'],
                         'vx': -180, 'vy': 0,
-                        'wave': True, 'waveOffset': random.random() * 100,
+                        'wave': True, 'waveOffset': rng.random() * 100,
                         'w': 14, 'h': 6, 'dead': False, 'zone': e['zone']
                     })
                     if rage:
                         state['eBullets'].append({
                             'x': e['x'] - 14, 'y': e['y'],
                             'vx': -180 * 0.866, 'vy': -180 * 0.5,
-                            'wave': True, 'waveOffset': random.random() * 100,
+                            'wave': True, 'waveOffset': rng.random() * 100,
                             'w': 14, 'h': 6, 'dead': False, 'zone': e['zone']
                         })
-            e['shootCd'] = 1.3 + random.random() * 1.5
+            e['shootCd'] = 1.3 + rng.random() * 1.5
 
     state['enemies'] = [e for e in state['enemies'] if e['x'] > -60]
 
@@ -197,12 +197,12 @@ def update(dt, state, keys):
                         'life': 1.1, 'vy': -35
                     })
 
-                    if random.random() < 0.12 + e.get('tier', 0) * 0.06:
-                        ptype = random.choice(['rapid_fire', 'heat_up', 'shield', 'spread'])
+                    if rng.random() < 0.12 + e.get('tier', 0) * 0.06:
+                        ptype = rng.choice(['rapid_fire', 'heat_up', 'shield', 'spread'])
                         state['powerups'].append({
                             'x': e['x'], 'y': e['y'],
                             'type': ptype,
-                            'vx': -40, 'vy': 20 + random.random() * 20,
+                            'vx': -40, 'vy': 20 + rng.random() * 20,
                             'life': 8.0,
                             'w': 16, 'h': 16,
                         })
@@ -386,13 +386,13 @@ def update(dt, state, keys):
 
 def boom(x, y, color, state):
     for _ in range(18):
-        a = random.random() * math.pi * 2
-        spd = 15 + random.random() * 120
+        a = rng.random() * math.pi * 2
+        spd = 15 + rng.random() * 120
         state['particles'].append({
             'x': x, 'y': y,
             'vx': math.cos(a) * spd, 'vy': math.sin(a) * spd,
-            'r': 2 + random.random() * 5,
-            'life': 0.3 + random.random() * 0.5,
+            'r': 2 + rng.random() * 5,
+            'life': 0.3 + rng.random() * 0.5,
             'color': color
         })
 
@@ -402,7 +402,7 @@ def spawnEnemy(state):
     max_enemies = {1: 6, 2: 8, 3: 11, 4: 15, 5: 18}.get(wave, 20)
     if len(state['enemies']) >= max_enemies:
         return
-    roll = random.random()
+    roll = rng.random()
     if state['killCount'] < 15:
         idx = 0
     elif state['killCount'] < 30:
@@ -419,7 +419,7 @@ def spawnEnemy(state):
 
     if state['currentMode'] == 2:
         alive = [p for p in state['players'] if not p['dead']]
-        src = alive[int(random.random() * len(alive))] if alive else state['players'][0]
+        src = alive[int(rng.random() * len(alive))] if alive else state['players'][0]
         zone = src.get('zone', 0)
         minY = src['minY'] + t['h'] / 2
         maxY = src['maxY'] - t['h'] / 2
@@ -436,17 +436,17 @@ def spawnEnemy(state):
     tier_val = 0 if idx == 0 else (1 if idx == 1 else 2)
     state['enemies'].append({
         'x': state['GAME_W'] + t['w'] / 2 + 10,
-        'y': minY + random.random() * (maxY - minY),
+        'y': minY + rng.random() * (maxY - minY),
         'w': t['w'], 'h': t['h'],
         'hp': t['maxHp'], 'maxHp': t['maxHp'],
         'pts': t['pts'], 'col': t['col'], 'dark': t['dark'],
         'spd': baseSpd * t['spdMul'],
         'wobF': t['wobF'], 'wAmp': t['wAmp'],
-        'wOff': random.random() * 100,
-        'shootCd': t['sCD'] + random.random(),
+        'wOff': rng.random() * 100,
+        'shootCd': t['sCD'] + rng.random(),
         'tier': tier_val,
         'dead': False, 'minY': minY, 'maxY': maxY, 'zone': zone,
-        'spriteIdx': random.randint(0, 2) if tier_val == 2 else 0
+        'spriteIdx': rng.randint(0, 2) if tier_val == 2 else 0
     })
 
 
