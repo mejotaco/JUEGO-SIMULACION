@@ -138,26 +138,27 @@ def game_loop():
 
     set_pygame_time(now)
 
+    pressed = pygame.key.get_pressed()
     game_keys = {}
     p = _state['players'][0]
     ctrl_p1 = _state.get('ctrlSchemeP1', 'wasd')
     if ctrl_p1 == 'wasd':
-        game_keys['w'] = _keys.get(pygame.K_w, False)
-        game_keys['s'] = _keys.get(pygame.K_s, False)
-        game_keys['a'] = _keys.get(pygame.K_a, False)
-        game_keys['d'] = _keys.get(pygame.K_d, False)
-        game_keys['capslock'] = _keys.get(pygame.K_CAPSLOCK, False)
+        game_keys['w'] = pressed[pygame.K_w] or _keys.get(pygame.K_w, False)
+        game_keys['s'] = pressed[pygame.K_s] or _keys.get(pygame.K_s, False)
+        game_keys['a'] = pressed[pygame.K_a] or _keys.get(pygame.K_a, False)
+        game_keys['d'] = pressed[pygame.K_d] or _keys.get(pygame.K_d, False)
+        game_keys['capslock'] = pressed[pygame.K_CAPSLOCK] or _keys.get(pygame.K_CAPSLOCK, False)
         game_keys['up'] = False
         game_keys['down'] = False
         game_keys['left'] = False
         game_keys['right'] = False
         game_keys['shift'] = False
     else:
-        game_keys['up'] = _keys.get(pygame.K_UP, False)
-        game_keys['down'] = _keys.get(pygame.K_DOWN, False)
-        game_keys['left'] = _keys.get(pygame.K_LEFT, False)
-        game_keys['right'] = _keys.get(pygame.K_RIGHT, False)
-        game_keys['shift'] = _keys.get(pygame.K_LSHIFT, False) or _keys.get(pygame.K_RSHIFT, False)
+        game_keys['up'] = pressed[pygame.K_UP] or _keys.get(pygame.K_UP, False)
+        game_keys['down'] = pressed[pygame.K_DOWN] or _keys.get(pygame.K_DOWN, False)
+        game_keys['left'] = pressed[pygame.K_LEFT] or _keys.get(pygame.K_LEFT, False)
+        game_keys['right'] = pressed[pygame.K_RIGHT] or _keys.get(pygame.K_RIGHT, False)
+        game_keys['shift'] = pressed[pygame.K_LSHIFT] or pressed[pygame.K_RSHIFT] or _keys.get(pygame.K_LSHIFT, False) or _keys.get(pygame.K_RSHIFT, False)
         game_keys['w'] = False
         game_keys['s'] = False
         game_keys['a'] = False
@@ -167,17 +168,17 @@ def game_loop():
     if _state['currentMode'] == 2:
         ctrl_p2 = _state.get('ctrlSchemeP2', 'arrows')
         if ctrl_p2 == 'wasd':
-            game_keys['w'] = game_keys['w'] or _keys.get(pygame.K_w, False)
-            game_keys['s'] = game_keys['s'] or _keys.get(pygame.K_s, False)
-            game_keys['a'] = game_keys['a'] or _keys.get(pygame.K_a, False)
-            game_keys['d'] = game_keys['d'] or _keys.get(pygame.K_d, False)
-            game_keys['ctrl'] = game_keys.get('ctrl', False) or _keys.get(pygame.K_LCTRL, False) or _keys.get(pygame.K_RCTRL, False)
+            game_keys['w'] = game_keys['w'] or pressed[pygame.K_w] or _keys.get(pygame.K_w, False)
+            game_keys['s'] = game_keys['s'] or pressed[pygame.K_s] or _keys.get(pygame.K_s, False)
+            game_keys['a'] = game_keys['a'] or pressed[pygame.K_a] or _keys.get(pygame.K_a, False)
+            game_keys['d'] = game_keys['d'] or pressed[pygame.K_d] or _keys.get(pygame.K_d, False)
+            game_keys['ctrl'] = game_keys.get('ctrl', False) or pressed[pygame.K_LCTRL] or pressed[pygame.K_RCTRL] or _keys.get(pygame.K_LCTRL, False) or _keys.get(pygame.K_RCTRL, False)
         else:
-            game_keys['up'] = game_keys['up'] or _keys.get(pygame.K_UP, False)
-            game_keys['down'] = game_keys['down'] or _keys.get(pygame.K_DOWN, False)
-            game_keys['left'] = game_keys['left'] or _keys.get(pygame.K_LEFT, False)
-            game_keys['right'] = game_keys['right'] or _keys.get(pygame.K_RIGHT, False)
-            game_keys['ctrl'] = game_keys.get('ctrl', False) or _keys.get(pygame.K_LCTRL, False) or _keys.get(pygame.K_RCTRL, False)
+            game_keys['up'] = game_keys['up'] or pressed[pygame.K_UP] or _keys.get(pygame.K_UP, False)
+            game_keys['down'] = game_keys['down'] or pressed[pygame.K_DOWN] or _keys.get(pygame.K_DOWN, False)
+            game_keys['left'] = game_keys['left'] or pressed[pygame.K_LEFT] or _keys.get(pygame.K_LEFT, False)
+            game_keys['right'] = game_keys['right'] or pressed[pygame.K_RIGHT] or _keys.get(pygame.K_RIGHT, False)
+            game_keys['ctrl'] = game_keys.get('ctrl', False) or pressed[pygame.K_LCTRL] or pressed[pygame.K_RCTRL] or _keys.get(pygame.K_LCTRL, False) or _keys.get(pygame.K_RCTRL, False)
 
     game_update(dt, _state, game_keys)
 
